@@ -10,6 +10,9 @@ import java.util.Objects;
  * <p>Holds JDBC connection parameters; creates a new Discoverer instance in
  * {@code createPatternProcessorDiscoverer()}.
  *
+ * <p>业务含义：持有 JDBC 连接参数，创建 {@link JDBCPeriodicPatternProcessorDiscoverer}。
+ * 当前未在 {@code DetectionApp} 中使用，是 HTTP 方式之外的 MySQL 直连备选方案。
+ *
  * @param <T> event type
  */
 public class JDBCPeriodicPatternProcessorDiscovererFactory<T>

@@ -11,17 +11,33 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * 交易事件模型 — Dynamic CEP 匹配用事件类
+ * 交易事件模型 —— Dynamic CEP 匹配用事件类。
+ *
+ * <p>在实时流中的定位：从 Kafka 原始 CSV 字符串解析出的标准交易事件，
+ * 是 CEP 算子（{@code DynamicCepOperator}）唯一处理的事件类型（{@code IN}）。
+ *
+ * <p>CEP 规则条件通过 Aviator 表达式访问本类的 getter（如
+ * {@code payerId}、{@code paymentAmount}），因此字段命名与 getter 即为规则可引用的"事件字段"。
+ *
+ * <p>事件时间语义：{@code eventTime} 是交易发生时间，被 {@code WatermarkStrategy} 提取为
+ * 事件时间戳，是 CEP 时间窗口（within）与乱序判定的依据。
  */
 public class Transaction implements Serializable {
     private static final long serialVersionUID = 1L;
 
+    /** 交易唯一标识，用于告警时定位具体交易 */
     private long transactionId;
+    /** 交易发生时间（事件时间，epoch 毫秒），CEP 时间语义与水位的依据 */
     private long eventTime;
+    /** 付款方账户 id（交易主体，可用于按账户维度关联事件） */
     private long payerId;
+    /** 收款方账户 id（交易对手方） */
     private long beneficiaryId;
+    /** 交易金额，CEP 金额阈值条件（如 {@code amount > 50000}）的目标字段 */
     private BigDecimal paymentAmount;
+    /** 支付方式/交易类型（具体枚举取值未在本模块定义）【待确认业务】 */
     private String paymentType;
+    /** 数据接入/入库时间戳（处理时间侧参考），是否参与 CEP 匹配【待确认业务】 */
     private Long ingestionTimestamp;
 
     private static final transient DateTimeFormatter timeFormatter =

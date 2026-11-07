@@ -16,7 +16,10 @@ import java.util.Objects;
  *   <li>Each version is independent, no side effects from Pattern object mutation</li>
  * </ul>
  *
- * @param <T> event type
+ * <p>业务含义：这是本模块唯一实际使用的规则实现。id + version 唯一标识一条规则，
+ * JSON 字符串是规则内容，function 是命中回调（可为 null，见热更新隐患说明）。
+ *
+ * @param <T> event type（本模块为 {@code Transaction}）
  */
 public class DefaultPatternProcessor<T> implements PatternProcessor<T> {
 

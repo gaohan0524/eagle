@@ -11,6 +11,8 @@ import java.util.List;
  * AND compound condition Spec.
  *
  * <p>Corresponds to Flink {@link RichAndCondition}: true if all sub-conditions are true.
+ *
+ * <p>业务含义：AND 复合条件（所有子条件同时满足），子条件可递归嵌套。
  */
 public class RichAndConditionSpec extends ConditionSpec {
 

@@ -16,6 +16,9 @@ import org.apache.flink.util.Preconditions;
  *
  * <p>Implements {@link CoordinatedOperatorFactory}, supporting JM-side Coordinator and
  * TM-side Operator OperatorEvent communication.
+ *
+ * <p>业务含义：既负责在 TM 侧创建 {@link DynamicCepOperator} 并注册事件通道，
+ * 又负责在 JM 侧提供协调器，是打通"规则下发"这条双向链路的关键工厂。
  */
 public class DynamicCepOperatorFactory<IN, OUT>
         extends AbstractStreamOperatorFactory<OUT>
@@ -37,6 +40,11 @@ public class DynamicCepOperatorFactory<IN, OUT>
         this.isProcessingTime = isProcessingTime;
     }
 
+    /**
+     * 在 TM 侧创建 {@link DynamicCepOperator} 实例，并完成三件初始化：
+     * 手动注入 ProcessingTimeService（AbstractStreamOperator 不自动注入）、
+     * 注册为 OperatorEventHandler（接收 JM 规则事件）。
+     */
     @Override
     @SuppressWarnings("unchecked")
     public <T extends StreamOperator<OUT>> T createStreamOperator(
@@ -63,6 +71,9 @@ public class DynamicCepOperatorFactory<IN, OUT>
         return (T) operator;
     }
 
+    /**
+     * 提供 JM 侧协调器的 Provider，使 Flink 能为该算子实例化 {@link DynamicCepCoordinator}。
+     */
     @Override
     public OperatorCoordinator.Provider getCoordinatorProvider(
             String operatorName, OperatorID operatorID) {

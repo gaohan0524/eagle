@@ -12,6 +12,9 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Corresponds to {@code pattern.within(Time.minutes(10))} in Flink CEP.
  * JSON Format: {@code {"type":"FIRST_AND_LAST","size":1,"unit":"HOURS"}}
+ *
+ * <p>业务含义：CEP 时间窗口约束，对应 {@code pattern.within(Time)}，
+ * 决定"整个匹配序列"必须在多长时间内完成，超时则部分匹配被清理。
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class WindowSpec {

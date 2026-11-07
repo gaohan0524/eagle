@@ -6,6 +6,9 @@ import org.apache.flink.cep.pattern.Quantifier;
  * Edge definition. Describes the connection relationship between two nodes in the Pattern DAG.
  *
  * <p>JSON Format: {@code {"source":"start","target":"end","type":"SKIP_TILL_NEXT"}}
+ *
+ * <p>业务含义：Pattern 图中节点间的转移边，type 决定转移语义
+ * （STRICT=next / SKIP_TILL_NEXT=followedBy / SKIP_TILL_ANY=followedByAny）。
  */
 public class EdgeSpec {
 

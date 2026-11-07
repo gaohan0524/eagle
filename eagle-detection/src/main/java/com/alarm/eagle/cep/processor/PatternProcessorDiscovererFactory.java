@@ -8,6 +8,9 @@ import java.io.Serializable;
  * <p>Called on each Operator creation to produce a new Discoverer instance.
  * Must implement {@link Serializable}, as it needs to be serialized with the JobGraph to the JM.
  *
+ * <p>业务含义：工厂必须可序列化（随 JobGraph 下发到 JM），
+ * 由协调器在启动时调用以创建具体的发现器实例。
+ *
  * @param <T> event type
  */
 public interface PatternProcessorDiscovererFactory<T>

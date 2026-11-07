@@ -35,6 +35,10 @@ import java.util.List;
  * </ul>
  *
  * <p>运行方式：直接运行 main() 方法即可。
+ *
+ * <p>说明：本类为自包含测试入口（非 JUnit、非生产代码），
+ * 通过 {@code initialProcessors} 内嵌规则 + {@code fromCollection} 模拟事件，
+ * 用于本地验证 Dynamic CEP 的匹配与时间窗口语义。
  */
 public class CepTestDemo {
 

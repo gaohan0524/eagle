@@ -11,6 +11,8 @@ import java.util.List;
  * OR compound condition Spec.
  *
  * <p>Corresponds to Flink {@link RichOrCondition}: true if at least one sub-condition is true.
+ *
+ * <p>业务含义：OR 复合条件（任一子条件满足即可），子条件可递归嵌套。
  */
 public class RichOrConditionSpec extends ConditionSpec {
 

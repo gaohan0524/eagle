@@ -9,6 +9,9 @@ import java.util.Objects;
  *
  * <p>Holds the API base URL and polling configuration.
  *
+ * <p>业务含义：持有 API 地址、初始规则、轮询间隔，随 JobGraph 序列化到 JM，
+ * 由协调器启动时创建 {@link ApiPatternProcessorDiscoverer}。
+ *
  * @param <T> event type
  */
 public class ApiPatternProcessorDiscovererFactory<T>

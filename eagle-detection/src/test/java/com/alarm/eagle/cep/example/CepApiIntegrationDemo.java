@@ -40,6 +40,9 @@ import java.util.List;
  * </ul>
  *
  * <p>如果 API 不可达，自动降级为内嵌规则（CepTestDemo 模式）。
+ *
+ * <p>说明：本类为 eagle-api 对接的联调示例（非生产代码），
+ * 演示"启动同步加载 + 运行时轮询热更新"两步的完整用法。
  */
 public class CepApiIntegrationDemo {
 

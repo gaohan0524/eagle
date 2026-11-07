@@ -36,6 +36,10 @@ import java.util.stream.Collectors;
  * ]
  * }</pre>
  *
+ * <p>业务含义：生产环境实际使用的发现器，替代 JDBC 直连方式，
+ * 通过 HTTP 轮询 eagle-api 的 {@code GET /cep/rules} 获取规则。
+ * 支持 initialProcessors 兜底（API 不可达时先用启动期加载的规则）。
+ *
  * @param <T> event type
  */
 public class ApiPatternProcessorDiscoverer<T>
@@ -68,6 +72,14 @@ public class ApiPatternProcessorDiscoverer<T>
         this.initialProcessors = initialProcessors;
     }
 
+    /**
+     * 检测规则是否发生变更。
+     *
+     * <p>业务含义：首次轮询优先使用 initialProcessors（保证事件到达前规则已就绪）；
+     * 之后轮询 API 并比较"规则 id→version 映射"是否变化（只认版本号，不看内容）。
+     *
+     * @return {@code true} 表示规则有变更，需要调用 {@link #getLatestPatternProcessors()} 拉取
+     */
     @Override
     public boolean arePatternProcessorsUpdated() {
         // First run: use initial rules if available
@@ -125,6 +137,15 @@ public class ApiPatternProcessorDiscoverer<T>
         }
     }
 
+    /**
+     * 返回最新规则列表。
+     *
+     * <p>业务含义：返回一份新的列表副本（避免调用方修改影响缓存）；
+     * 首次且无 API 数据时回退返回 initialProcessors。
+     *
+     * @return 最新规则列表
+     * @throws IllegalStateException 在未先调用 {@link #arePatternProcessorsUpdated()} 且无初始规则时抛出
+     */
     @Override
     @SuppressWarnings("unchecked")
     public List<PatternProcessor<T>> getLatestPatternProcessors()

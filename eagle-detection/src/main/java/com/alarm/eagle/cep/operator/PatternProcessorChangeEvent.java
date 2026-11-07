@@ -29,13 +29,13 @@ public class PatternProcessorChangeEvent<T>
 
     private static final long serialVersionUID = 1L;
 
-    /** Newly launched rules (added) */
+    /** Newly launched rules (added) —— 新增上线的新规则 */
     private final List<PatternProcessor<T>> added;
 
-    /** Offline rule id+version (deleted) */
+    /** Offline rule id+version (deleted) —— 已下线规则（仅 id+version，无需完整规则体） */
     private final List<RuleIdentifier> removed;
 
-    /** Version-updated rules (replaced) */
+    /** Version-updated rules (replaced) —— 版本升级的规则（同 id、更高 version） */
     private final List<PatternProcessor<T>> updated;
 
     public PatternProcessorChangeEvent(

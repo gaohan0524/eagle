@@ -29,7 +29,7 @@ A convenience script `eagle-api/build.sh` builds the API module and assembles an
 
 ## Architecture
 
-Eagle is a **real-time alarm detection platform** using Apache Flink with three different CEP/rule engines. It has 5 Maven modules (Java 8, Flink 1.16.3, Spring Boot 2.5.12).
+Eagle is a **real-time alarm detection platform** using Apache Flink with three different CEP/rule engines. It has 5 Maven modules (Java 8, Flink 1.17.2, Spring Boot 2.5.12).
 
 ### Module Map
 
@@ -38,7 +38,7 @@ Eagle is a **real-time alarm detection platform** using Apache Flink with three 
 | `eagle-common` | Library | Shared models, utilities, constants — no Flink deps |
 | `eagle-api` | Spring Boot app | Central REST API for rule/task CRUD, alert notification dispatch |
 | `eagle-alert` | Flink job | Siddhi CEP engine for policy-based data alerting |
-| `eagle-detection` | Flink job | Dynamic rule evaluation with broadcast state (fraud detection) |
+| `eagle-detection` | Flink job | Dynamic CEP engine with runtime rule hot-swap (transaction fraud detection) |
 | `eagle-log` | Flink job | Drools rule engine for log processing → ES + Redis |
 
 All Flink/API modules depend on `eagle-common`. There are no other inter-module dependencies.
@@ -49,7 +49,7 @@ All Flink/API modules depend on `eagle-common`. There are no other inter-module 
 
 2. **`EagleLogApp`** — `eagle-log` Flink job. Kafka → `LogProcessFunction` (Drools rules via broadcast state) → Elasticsearch + Redis aggregation.
 
-3. **`DetectionApp`** — `eagle-detection` Flink job. Kafka/Generator → `DynamicKeyFunction` (broadcast-state-driven keying) → `DynamicAlertFunction` (windowed aggregation + threshold comparison) → Alert sinks.
+3. **`DetectionApp`** — `eagle-detection` Flink job. Kafka → `Transaction` parser → `DynamicCEP` (multi-NFA hot-swap engine) → `DetectionAlertFunction` → STDOUT. Rules are fetched from eagle-api at startup and hot-reloaded via `ApiPatternProcessorDiscoverer`.
 
 4. **`EagleAlertApp`** — `eagle-alert` Flink job. Takes `taskId` arg, fetches Task config from eagle-api, unions multiple Kafka sources → `SiddhiOperator` (Siddhi CEP runtime) → `ApiSink` (HTTP POST back to eagle-api).
 
@@ -66,11 +66,11 @@ eagle-api (MySQL/JPA) ←──config queries── eagle-alert, eagle-log, eagl
 
 - `eagle-log` polls `GET /log/rules` for Drools rule updates
 - `eagle-alert` calls `GET /task/query?taskId=` for Siddhi task config, POSTs results to `/data/sink`
-- `eagle-detection` reads rules from Kafka (via `RulesSource`) rather than HTTP
+- `eagle-detection` polls `GET /cep/rules` from eagle-api via `ApiPatternProcessorDiscoverer` for rule hot-reload
 
 ### Key Architecture Patterns
 
-**Broadcast State (eagle-detection)**: `DynamicKeyFunction` and `DynamicAlertFunction` form a two-stage broadcast pipeline. Rules are broadcast to all parallel subtasks. `DynamicKeyFunction` keys each event by rule's `groupingKeyNames`, then `DynamicAlertFunction` maintains per-key window state and aggregates values (SUM/AVG/MIN/MAX) over sliding time windows, comparing against rule thresholds.
+**Dynamic CEP (eagle-detection)**: `DynamicCepOperator` (TM-side) holds a `Map<RuleKey, RuleContext>` — one NFA + isolated `ValueState`/`MapState`/`InternalTimerService`/metrics per rule, all named with an `{id}-{version}` suffix for version isolation. `DynamicCepCoordinator` (JM-side) polls rules via a `PatternProcessorDiscoverer`, computes the delta (added/removed/updated), and pushes it to TMs as `OperatorEvent` for hot-swap. Every incoming event is evaluated by all active rules in parallel.
 
 **Siddhi Operator Lifecycle (eagle-alert)**: `SiddhiOperator` (a Flink `AbstractStreamOperator`) wraps WSO2 Siddhi runtime. Uses a priority queue for event-time ordering. `SiddhiTaskManager` hot-swaps Siddhi runtimes when task config changes (detected via background polling thread). Checkpoints Siddhi runtime snapshots using Flink managed operator state with union redistribution.
 
@@ -82,13 +82,13 @@ eagle-api (MySQL/JPA) ←──config queries── eagle-alert, eagle-log, eagl
 
 | Module | Engine | Purpose |
 |---|---|---|
-| `eagle-detection` | Flink CEP + custom accumulators | Transaction fraud detection with dynamic rules |
+| `eagle-detection` | Flink CEP + Dynamic CEP framework | Transaction fraud detection with hot-swappable rules |
 | `eagle-alert` | WSO2 Siddhi 4.0.0 | CQL-based policy evaluation over unioned streams |
 | `eagle-log` | Drools 7.74.1 | Rule-based log filtering, enrichment, and classification |
 
 ### Dynamic CEP Module (`eagle-detection/.../cep/`)
 
-The `eagle-detection` module now includes a full Dynamic CEP framework (33 Java files) ported from Flink-Dynamic-CEP-FP. It enables runtime hot-swapping of Flink CEP patterns without job restart.
+The `eagle-detection` module includes a full Dynamic CEP framework (39 main classes + 4 test/example classes) ported from Flink-Dynamic-CEP-FP. It enables runtime hot-swapping of Flink CEP patterns without job restart.
 
 **Package structure:**
 - `cep/` — `DynamicCEP.java` API entry point, `PatternWrapper.java`
@@ -96,7 +96,7 @@ The `eagle-detection` module now includes a full Dynamic CEP framework (33 Java 
 - `cep/json/` — `CepJsonUtils.java` (JSON ↔ Pattern bidirectional conversion), `TimeDeserializer.java`
 - `cep/json/spec/` — 12 spec classes for JSON serialization of Pattern DAG (`GraphSpec`, `NodeSpec`, `EdgeSpec`, `ConditionSpec` + subtypes, `QuantifierSpec`, `TimesSpec`, `WindowSpec`, `AfterMatchSkipStrategySpec`)
 - `cep/operator/` — `DynamicCepOperator.java` (multi-NFA engine with per-rule state isolation), `DynamicCepOperatorFactory.java`, `DynamicCepCoordinator.java` (JM-side rule distribution), `PatternProcessorChangeEvent.java`, `RuleLifecycleEvent.java`
-- `cep/processor/` — Rule abstraction (`PatternProcessor`, `DefaultPatternProcessor`), discovery interfaces (`PatternProcessorDiscoverer`, `PatternProcessorDiscovererFactory`, `PatternProcessorManager`), `PeriodicPatternProcessorDiscoverer.java`, `JDBCPeriodicPatternProcessorDiscoverer.java` (MySQL-backed rule store)
+- `cep/processor/` — Rule abstraction (`PatternProcessor`, `DefaultPatternProcessor`), discovery interfaces (`PatternProcessorDiscoverer`, `PatternProcessorDiscovererFactory`, `PatternProcessorManager`), `PeriodicPatternProcessorDiscoverer.java`, `ApiPatternProcessorDiscoverer.java` (HTTP polling of eagle-api, used in production), `JDBCPeriodicPatternProcessorDiscoverer.java` (MySQL-backed rule store)
 
 **Key capabilities:**
 - Rules stored as JSON in MySQL or passed programmatically via `initialProcessors`
@@ -110,12 +110,13 @@ The `eagle-detection` module now includes a full Dynamic CEP framework (33 Java 
 **Usage in DetectionApp:**
 ```java
 import com.alarm.eagle.cep.DynamicCEP;
+PatternProcessorDiscovererFactory<Transaction> discovererFactory =
+        new ApiPatternProcessorDiscovererFactory<>(
+                apiBaseUrl, initialRules, pollIntervalMs);
 SingleOutputStreamOperator<String> cepResults = DynamicCEP.dynamicPatterns(
-    transactions,
-    new JDBCPeriodicPatternProcessorDiscovererFactory<>(
-        jdbcUrl, jdbcDriver, tableName, null, intervalMs),
-    false,  // isProcessingTime = EventTime
-    TypeInformation.of(String.class));
+        transactions, discovererFactory,
+        false,  // isProcessingTime = EventTime
+        TypeInformation.of(String.class));
 ```
 
 **New dependency:** `com.googlecode.aviator:aviator:5.3.1`
@@ -133,7 +134,8 @@ SingleOutputStreamOperator<String> cepResults = DynamicCEP.dynamicPatterns(
 
 - **Flink 1.17.2**: Upgraded from 1.16.3 for Dynamic CEP compatibility. `TimeCharacteristic` and `BoundedOutOfOrdernessTimestampExtractor` have been replaced with `WatermarkStrategy`. Old `FlinkKafkaConsumer`/`FlinkKafkaProducer` are deprecated but still functional.
 - Tests are **globally skipped** in the root POM (`<skipTests>true</skipTests>`). Must explicitly pass `-DskipTests=false` to run them.
-- `eagle-detection` has **no test dependencies and no test classes**.
+- `eagle-detection` test classes are self-contained demos under `src/test/.../cep/example/` (`CepTestDemo`, `CepApiIntegrationDemo`) — run via `main()`, not JUnit; there is no JUnit test dependency.
+- **Hot-reload caveat**: `ApiPatternProcessorDiscoverer` builds hot-reloaded rules with a `null` `PatternProcessFunction` (the API `function` field is read but unused), while startup rules from `DetectionApp.fetchRulesFromApi` carry a `DetectionAlertFunction`. A match on a hot-reloaded rule would NPE in `DynamicCepOperator.processMatchedSequences`.
 - WSO2 Maven repositories are required for Siddhi artifacts — configured in root POM. Internal Tencent mirror is the primary repo.
 - Flink dependencies (`flink-streaming-java`, `flink-cep`, `flink-cep-scala`) are set to `<scope>provided</scope>` in the root POM — they are expected on the Flink cluster classpath.
 - Eagle uses **Spring Boot's Log4j2 starter** and explicitly excludes `spring-boot-starter-logging` to avoid Logback conflicts.

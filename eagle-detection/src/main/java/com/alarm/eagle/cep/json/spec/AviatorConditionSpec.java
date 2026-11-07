@@ -7,6 +7,8 @@ import org.apache.flink.cep.pattern.conditions.IterativeCondition;
  * Aviator expression type condition. Stored as an expression string.
  *
  * <p>JSON Format: {@code {"type":"AVIATOR","expression":"action == 0"}}
+ *
+ * <p>业务含义：表达式型条件（最常用），存储为 Aviator 表达式字符串，运行时求值。
  */
 public class AviatorConditionSpec extends ConditionSpec {
 

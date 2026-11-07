@@ -7,6 +7,15 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 运行参数装配器。
+ *
+ * <p>业务含义：根据运行模式（dev/test/prod）注入各环境的默认参数
+ * （Kafka 地址、topic、eagle-api 地址、轮询间隔等），再被命令行传入的参数覆盖，
+ * 最终合并成一份 {@link ParameterTool} 供 {@code DetectionApp} 使用。
+ *
+ * <p>设计目的：把"环境差异"集中到一处，作业代码只依赖统一的参数 key（见 {@link Constant}）。
+ */
 public class DetectionProperties {
     private static final Logger logger = LoggerFactory.getLogger(DetectionProperties.class);
 

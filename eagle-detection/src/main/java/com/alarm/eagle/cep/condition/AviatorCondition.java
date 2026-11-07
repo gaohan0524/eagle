@@ -31,7 +31,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p><b>Serialization compatibility</b>: {@code compiledExpression} and cache fields are {@code transient},
  * recompiled on deserialization but caches rebuilt automatically.
  *
- * @param <T> event type
+ * <p>业务含义：动态 CEP 条件的基础——规则里写的是字符串表达式（如
+ * {@code "action == 'LOGIN_FAIL'" }），本类在运行时对每条事件求值，
+ * 使规则无需编译 Java 类即可新增/修改，是"规则可配置化"的核心支撑。
+ *
+ * @param <T> event type（本模块为 {@code Transaction}）
  */
 public class AviatorCondition<T> extends SimpleCondition<T> {
 
@@ -91,6 +95,12 @@ public class AviatorCondition<T> extends SimpleCondition<T> {
 
     /**
      * ★ Core filter method. Called for every incoming event.
+     *
+     * <p>业务含义：对到达的每条交易事件，取出表达式引用到的字段值、代入求值，
+     * 返回该事件是否满足条件。CEP 据此决定事件是否推进 NFA 状态。
+     *
+     * @param eventBean 待匹配的交易事件
+     * @return {@code true} 表示事件满足该条件
      */
     @Override
     public boolean filter(T eventBean) throws Exception {
@@ -116,6 +126,14 @@ public class AviatorCondition<T> extends SimpleCondition<T> {
      *
      * <p>Lookup priority: getter → is-getter (boolean) → direct field access.
      * Results are cached in the global MethodHandle cache after the first lookup.
+     */
+    /**
+     * 读取事件字段值（优先 getter → is-getter → 直接字段），并用全局 MethodHandle 缓存加速。
+     *
+     * @param bean      交易事件对象
+     * @param fieldName 表达式引用的字段名
+     * @return 字段当前值
+     * @throws ReflectiveOperationException 当事件类上不存在该字段的 getter 或字段时抛出
      */
     public Object getVariableValue(T bean, String fieldName)
             throws ReflectiveOperationException {
@@ -159,6 +177,12 @@ public class AviatorCondition<T> extends SimpleCondition<T> {
 
     /**
      * ★ Build a MethodHandle for the given class and field name.
+     */
+    /**
+     * 为给定类 + 字段名构建 MethodHandle（getter → is-getter → 直接字段，依次尝试）。
+     *
+     * <p>性能目的：用 MethodHandle 替代传统反射 {@code Method.invoke()}，
+     * 避免每条事件匹配时都做反射查找，降低高吞吐下的 CPU 开销。
      */
     private static MethodHandle buildMethodHandle(
             Class<?> clazz, String fieldName) {

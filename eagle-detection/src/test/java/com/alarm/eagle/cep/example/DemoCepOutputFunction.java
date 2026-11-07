@@ -11,6 +11,8 @@ import java.util.Map;
  *
  * <p>构造函数签名为 {@code (String ruleId, int version)}，
  * 以支持 JDBCPeriodicPatternProcessorDiscoverer 的反射实例化。
+ *
+ * <p>说明：仅用于测试示例，把命中序列按"规则 id + 各节点事件明细"格式化为可读文本。
  */
 public class DemoCepOutputFunction
         extends PatternProcessFunction<UserBehaviorEvent, String> {

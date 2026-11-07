@@ -15,7 +15,10 @@ import java.io.Serializable;
  *   <li>Callback function on match (PatternProcessFunction)</li>
  * </ul>
  *
- * @param <T> event type
+ * <p>在实时流中的定位：一条 CEP 规则的"可序列化抽象"。规则以 JSON 字符串承载，
+ * 通过 OperatorEvent 在 JM→TM 之间传输，运行时才反序列化成 Flink {@link Pattern}。
+ *
+ * @param <T> event type（本模块为 {@code Transaction} 交易事件）
  */
 public interface PatternProcessor<T> extends Serializable {
 
@@ -30,6 +33,7 @@ public interface PatternProcessor<T> extends Serializable {
      * Deserialized from JSON on every call to prevent internal Pattern state from being shared across versions.
      *
      * @param classLoader user code ClassLoader, for loading Class-type conditions
+     * @return 从规则 JSON 反序列化出的 Flink Pattern（每次调用都全新构建，避免跨版本状态污染）
      */
     Pattern<T, ?> getPattern(ClassLoader classLoader);
 

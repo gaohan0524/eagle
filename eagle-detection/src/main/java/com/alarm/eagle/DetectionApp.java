@@ -41,14 +41,20 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * Eagle Detection — Flink 实时欺诈检测作业
+ * Eagle Detection —— Flink 实时欺诈检测作业入口。
+ *
+ * <p>在实时流中的定位：本模块的主类（main 入口），负责把数据源、规则发现、
+ * CEP 匹配、告警输出四段串成一条完整的 Flink 作业链。
+ *
+ * <p>处理的事件类型：{@link Transaction}（交易事件）。CEP 规则由 eagle-api 下发，
+ * 匹配命中后由 {@link DetectionAlertFunction} 生成告警文本。
  *
  * <p>使用 Dynamic CEP 引擎，支持运行时热更新规则：
  * <ol>
  *   <li>从 Kafka 消费交易事件流</li>
- *   <li>启动时从 eagle-api 同步加载 CEP 规则</li>
+ *   <li>启动时从 eagle-api 同步加载 CEP 规则（保证事件到达前规则已就绪）</li>
  *   <li>运行时通过 ApiPatternProcessorDiscoverer 后台轮询规则更新</li>
- *   <li>匹配结果输出到标准输出（dev）或 Kafka（prod）</li>
+ *   <li>匹配结果输出到标准输出（当前仅 STDOUT；注释中的 Kafka sink 尚未落地）【待确认业务】</li>
  * </ol>
  */
 public class DetectionApp {
@@ -100,6 +106,19 @@ public class DetectionApp {
 
     // ======================== Kafka 数据源 ========================
 
+    /**
+     * 构建交易事件数据源。
+     *
+     * <p>算子作用：Kafka 源 + CSV 解析 + 事件时间水位，三段合并为一条 {@code DataStream<Transaction>}。
+     *
+     * <p>状态/时间逻辑：通过 {@code forBoundedOutOfOrderness} 容忍 {@code transaction.out.of.orderness}
+     * 毫秒的乱序，并用 {@code txn.getEventTime()} 作为事件时间戳——
+     * 这是后续 CEP {@code within} 窗口正确性的前提。
+     *
+     * @param env       Flink 流执行环境
+     * @param parameter 运行参数（含 Kafka 连接、topic、并行度、乱序容忍等）
+     * @return 已解析并带事件时间水位的交易事件流
+     */
     private static DataStream<Transaction> getTransactionStream(
             StreamExecutionEnvironment env, ParameterTool parameter) {
         String bootstrapServers = parameter.get(Constant.KAFKA_BOOTSTRAP_SERVERS);
@@ -255,6 +274,13 @@ public class DetectionApp {
             this.version = version;
         }
 
+        /**
+         * CEP 规则命中回调，把匹配到的交易序列格式化为告警文本。
+         *
+         * @param match CEP 匹配结果：key 为 Pattern 节点名，value 为该节点命中的交易事件列表
+         * @param ctx   CEP 匹配上下文（含匹配时间戳等元信息）
+         * @param out   下游收集器，输出最终告警字符串
+         */
         @Override
         public void processMatch(
                 Map<String, List<Transaction>> match,

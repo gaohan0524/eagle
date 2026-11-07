@@ -39,6 +39,9 @@ import java.util.stream.Collectors;
  *   function VARCHAR  — PatternProcessFunction fully qualified class name (optional)
  * </pre>
  *
+ * <p>业务含义：基于 MySQL 规则表的发现器（当前 {@code DetectionApp} 未启用，
+ * 生产走 {@link ApiPatternProcessorDiscoverer}）。同 id 取最大 version，比较规则表是否变化。
+ *
  * @param <T> event type
  */
 public class JDBCPeriodicPatternProcessorDiscoverer<T>

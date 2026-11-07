@@ -22,9 +22,13 @@ public class RuleLifecycleEvent implements OperatorEvent, Serializable {
     private static final long serialVersionUID = 1L;
 
     public enum Action {
+        /** 暂停规则：NFA 与状态保留，但不再接收新事件，可随时恢复 */
         PAUSE,
+        /** 恢复规则：从暂停/排空状态恢复接收事件 */
         RESUME,
+        /** 优雅排空：不再接收新事件，等待已有部分匹配自然走完或超时 */
         DRAIN,
+        /** 强制下线：立即关闭该规则所有版本的 NFA 并清理状态 */
         DELETE
     }
 

@@ -35,6 +35,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * </ol>
  *
  * <p>Also implements {@link PatternProcessorManager} for Discoverer callbacks.
+ *
+ * <p>在实时流中的定位：运行在 JobManager 侧（OperatorCoordinator），
+ * 是"规则仓库"与"TM 执行器"之间的枢纽。它自己不处理任何交易事件，
+ * 只负责发现规则、计算增量、通过 OperatorEvent 下发给所有 TM 子任务，
+ * 并在 checkpoint/故障恢复时保证规则状态一致。
  */
 public class DynamicCepCoordinator<IN>
         implements OperatorCoordinator, PatternProcessorManager<IN> {
@@ -64,6 +69,14 @@ public class DynamicCepCoordinator<IN>
 
     // ======================== PatternProcessorManager Implementation ========================
 
+    /**
+     * 规则更新回调（由 Discoverer 后台线程调用）。
+     *
+     * <p>业务含义：外部规则源发生变化后，本方法计算"相对上一次的增量"，
+     * 若增量非空则把变更事件广播给所有已就绪的 TM 子任务；无变化则跳过，避免无谓 RPC。
+     *
+     * @param processors 规则源返回的最新完整规则列表（含 id + version）
+     */
     @Override
     public void onPatternProcessorsUpdated(
             List<PatternProcessor<IN>> processors) {
@@ -93,6 +106,10 @@ public class DynamicCepCoordinator<IN>
 
     /**
      * ★ Compute incremental change.
+     *
+     * <p>业务含义：把"最新完整规则列表"与"当前已下发的规则列表"做差集，
+     * 得到 added（新增）/ removed（下线）/ updated（版本升级）三类变更，
+     * 从而最小化下发给 TM 的数据量、并让未变更规则免于重建。
      */
     private PatternProcessorChangeEvent<IN> computeDelta(
             List<PatternProcessor<IN>> latest) {
@@ -165,6 +182,10 @@ public class DynamicCepCoordinator<IN>
 
     // ======================== OperatorCoordinator Lifecycle ========================
 
+    /**
+     * 协调器启动：创建规则发现器并注册本协调器为回调接收者，
+     * 随后发现器在后台 Timer 线程开始首次立即轮询 + 周期轮询规则源。
+     */
     @Override
     public void start() throws Exception {
         started = true;
@@ -197,6 +218,12 @@ public class DynamicCepCoordinator<IN>
 
     // ======================== Checkpoint ========================
 
+    /**
+     * Checkpoint 时把当前规则列表序列化保存到 JM 状态。
+     *
+     * <p>容错目的：作业恢复后无需重新从零拉取规则，直接反序列化恢复规则基线；
+     * 各 TM 子任务则通过 {@code resetToCheckpoint} 与补发机制重新对齐。
+     */
     @Override
     @SuppressWarnings("unchecked")
     public void checkpointCoordinator(
@@ -262,6 +289,10 @@ public class DynamicCepCoordinator<IN>
         gateways.remove(subtask);
     }
 
+    /**
+     * TM 子任务就绪回调：记录其通信网关并补发一次全量规则。
+     * 用于 TM 冷启动/重启后快速对齐规则，而不必等待下一次轮询周期。
+     */
     @Override
     public void executionAttemptReady(
             int subtask, int attemptNumber, SubtaskGateway gateway) {
@@ -275,6 +306,12 @@ public class DynamicCepCoordinator<IN>
 
     // ======================== Internal Methods ========================
 
+    /**
+     * 向指定子任务补发全量规则。
+     *
+     * <p>为什么用全量而非增量：重启后的 TM 没有历史规则基线，
+     * 无法判断新增/删除，只能用全量 {@code UpdatePatternProcessorEvent} 对齐。
+     */
     private void resendToSubtask(int subtask) {
         SubtaskGateway gateway = gateways.get(subtask);
         if (gateway != null && currentProcessors != null) {

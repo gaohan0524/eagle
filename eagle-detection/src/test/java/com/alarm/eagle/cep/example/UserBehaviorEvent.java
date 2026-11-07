@@ -6,6 +6,9 @@ import java.io.Serializable;
  * 用户行为事件 — Dynamic CEP 测试用事件类
  *
  * <p>模拟用户操作：登录、浏览商品、下单、支付、转账等。
+ *
+ * <p>说明：仅用于测试示例，生产环境的事件类是 {@code com.alarm.eagle.message.Transaction}。
+ * 字段通过 getter 暴露给 Aviator 表达式引用。
  */
 public class UserBehaviorEvent implements Serializable {
     private static final long serialVersionUID = 1L;

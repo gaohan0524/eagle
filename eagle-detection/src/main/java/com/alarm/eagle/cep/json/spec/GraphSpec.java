@@ -25,6 +25,9 @@ import java.util.Set;
  *   <li><b>window</b> — global time window (corresponds to {@code within(Duration)})</li>
  *   <li><b>afterMatchStrategy</b> — After-match skip strategy</li>
  * </ul>
+ *
+ * <p>业务含义：一条 CEP 规则在 JSON 层的完整表示。它是"规则 JSON"与"可执行
+ * Flink Pattern"之间的唯一转换桥梁，是动态 CEP 规则可配置/可传输的核心模型。
  */
 public class GraphSpec extends NodeSpec {
 
@@ -86,6 +89,9 @@ public class GraphSpec extends NodeSpec {
     /**
      * ★ Construct GraphSpec from a Flink Pattern.
      * Traverse the Pattern linked list from back to front, collect nodes and edges, then reverse.
+     *
+     * <p>业务含义：Pattern → JSON 方向，用于把代码里构造的 Pattern 序列化保存/调试。
+     * 遇到嵌套 {@link GroupPattern} 递归生成子 GraphSpec。
      */
     public static GraphSpec fromPattern(Pattern<?, ?> pattern) {
         List<NodeSpec> nodeList = new ArrayList<>();
@@ -147,8 +153,12 @@ public class GraphSpec extends NodeSpec {
     /**
      * ★★ Core method: reconstruct a complete Flink Pattern object from GraphSpec.
      *
+     * <p>业务含义：JSON → Pattern 方向（规则加载/热更新时调用）。从入度为 0 的起点节点出发，
+     * 沿边逐节点串成 Pattern 链，最后设置全局 within 窗口。
+     *
      * @param classLoader user code ClassLoader, for loading Class-type conditions
      * @return Complete Pattern chain (Pattern of the last node, containing the previous linked list)
+     * @throws Exception 当图结构非法（无节点 / 起点不唯一 / 节点缺失）时抛出
      */
     public Pattern<?, ?> toPattern(ClassLoader classLoader) throws Exception {
         if (nodes.isEmpty()) {

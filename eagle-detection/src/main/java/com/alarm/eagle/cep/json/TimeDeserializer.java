@@ -13,6 +13,9 @@ import java.util.concurrent.TimeUnit;
  * Jackson deserializer for Flink {@link Time}.
  *
  * <p>JSON format: {@code {"unit":"MINUTES","size":15}} or {@code null}.
+ *
+ * <p>业务含义：规则 JSON 中窗口时长（{@code within} 的时间参数）的序列化器，
+ * 把 {@code {unit, size}} 还原成 Flink {@link Time} 对象。
  */
 public class TimeDeserializer extends JsonDeserializer<Time> {
 

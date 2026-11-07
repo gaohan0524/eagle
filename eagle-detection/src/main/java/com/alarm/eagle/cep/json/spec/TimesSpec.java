@@ -5,6 +5,8 @@ import org.apache.flink.streaming.api.windowing.time.Time;
 /**
  * Times constraint. Corresponds to {@code Pattern.times(from, to)} and
  * {@code Pattern.timesOrMore(from).within(windowTime)} in Flink CEP.
+ *
+ * <p>业务含义：循环节点的次数约束（from/to 及循环内窗口时长）。
  */
 public class TimesSpec {
 

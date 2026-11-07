@@ -11,6 +11,12 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 /**
  * Dynamic CEP API entry point (counterpart to the official {@code CEP.java}).
  *
+ * <p>在实时流中的定位：对外唯一入口，把"事件流 + 规则发现器"组装成一个
+ * 带热更新能力的 CEP 算子（{@code DynamicCepOperator}）。
+ *
+ * <p>设计目的：对齐官方 {@code CEP.pattern()} 的调用习惯，让使用方无需感知
+ * JM 协调器（{@code DynamicCepCoordinator}）与 TM 算子之间的 OperatorEvent 通信细节。
+ *
  * <p>Usage:
  * <pre>{@code
  * SingleOutputStreamOperator<String> output = DynamicCEP.dynamicPatterns(
@@ -26,13 +32,14 @@ public class DynamicCEP {
     /**
      * ★ Create a dynamic CEP stream.
      *
-     * @param input             input event stream (must be KeyedStream, otherwise auto keyBy)
-     * @param discovererFactory rule discoverer factory
-     * @param isProcessingTime  true=ProcessingTime, false=EventTime
-     * @param outTypeInfo       output type information
-     * @param <T>  event type
-     * @param <R>  output type
-     * @return match result stream
+     * @param input             输入事件流（交易事件）；若已 keyBy 则直接复用，
+     *                          否则自动 {@code keyBy(NullByteKeySelector)} 并强制单并行度
+     * @param discovererFactory 规则发现器工厂，负责在 JM 侧轮询规则并触发热更新
+     * @param isProcessingTime  {@code true}=处理时间语义；{@code false}=事件时间语义
+     * @param outTypeInfo       输出类型信息（告警结果流的类型）
+     * @param <T>               事件类型（本模块为 {@code Transaction}）
+     * @param <R>               输出类型（本模块为 {@code String} 告警文本）
+     * @return CEP 匹配结果流（下游为告警输出/sink）
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static <T, R> SingleOutputStreamOperator<R> dynamicPatterns(

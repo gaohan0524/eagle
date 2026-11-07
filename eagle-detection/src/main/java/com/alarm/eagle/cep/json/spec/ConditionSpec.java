@@ -22,6 +22,9 @@ import java.util.List;
  *   <li>{@code AND}     — All sub-conditions are true (recursive nesting)</li>
  *   <li>{@code NOT}     — Negate a sub-condition</li>
  * </ul>
+ *
+ * <p>业务含义：CEP 条件的 JSON 多态基类，通过 {@code type} 字段区分
+ * 表达式条件（AVIATOR）、类条件（CLASS）与复合逻辑（OR/AND/NOT）。
  */
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -62,6 +65,8 @@ public abstract class ConditionSpec {
     /**
      * ★ Core method: restore ConditionSpec to a Flink IterativeCondition.
      * Supports recursive expansion of compound conditions (OR/AND/NOT).
+     *
+     * <p>业务含义：JSON 条件 → Flink 可求值条件（规则加载时调用）。
      */
     public abstract IterativeCondition<?> toIterativeCondition(
             ClassLoader classLoader) throws Exception;
@@ -69,6 +74,8 @@ public abstract class ConditionSpec {
     /**
      * ★ Core method: reverse-engineer ConditionSpec from a Flink IterativeCondition.
      * Supports recursive conversion of compound conditions.
+     *
+     * <p>业务含义：Flink 条件 → JSON 条件（Pattern 序列化方向，递归还原复合条件）。
      */
     @SuppressWarnings("unchecked")
     public static ConditionSpec fromCondition(IterativeCondition<?> condition) {

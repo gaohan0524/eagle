@@ -6,6 +6,8 @@ import org.apache.flink.cep.pattern.conditions.IterativeCondition;
  * Class type condition. Stored as a fully qualified Java class name.
  *
  * <p>JSON Format: {@code {"type":"CLASS","className":"com.alarm.eagle.cep.condition.EndCondition"}}
+ *
+ * <p>业务含义：Java 类型条件，按全限定类名加载自定义条件类（需实现 IterativeCondition）。
  */
 public class ClassConditionSpec extends ConditionSpec {
 

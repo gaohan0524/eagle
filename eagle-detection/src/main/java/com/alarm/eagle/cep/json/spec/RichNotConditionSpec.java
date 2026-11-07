@@ -9,6 +9,8 @@ import org.apache.flink.cep.pattern.conditions.RichNotCondition;
  * NOT compound condition Spec.
  *
  * <p>Corresponds to Flink {@link RichNotCondition}: Negate a sub-condition.
+ *
+ * <p>业务含义：NOT 否定条件（对单一子条件取反）。
  */
 public class RichNotConditionSpec extends ConditionSpec {
 

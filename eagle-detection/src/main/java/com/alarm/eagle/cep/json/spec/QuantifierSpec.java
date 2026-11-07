@@ -10,6 +10,9 @@ import java.util.List;
  * Quantifier definition. Corresponds to the Quantifier + Times + untilCondition combination in Flink CEP.
  *
  * <p>Describes "how to match this Pattern node": once, multiple, optional, greedy, and the internal event selection strategy.
+ *
+ * <p>业务含义：节点"匹配多少次"的约束描述（单次/多次/可选/贪婪 + 内部事件选择策略），
+ * 对应 Flink 的 Quantifier + Times + untilCondition 组合。
  */
 public class QuantifierSpec {
 

@@ -18,6 +18,9 @@ import org.slf4j.LoggerFactory;
  *   Pattern —(GraphSpec.fromPattern)→ GraphSpec —(ObjectMapper)→ JSON String
  *   JSON String —(ObjectMapper)→ GraphSpec —(toPattern)→ Pattern
  * </pre>
+ *
+ * <p>业务含义：规则以 JSON 字符串形式存储/传输，运行时由本工具还原成 Flink
+ * {@link Pattern}，是整个 Dynamic CEP"规则可配置、可热更新"的序列化基础。
  */
 public class CepJsonUtils {
 
@@ -47,9 +50,10 @@ public class CepJsonUtils {
     /**
      * ★ JSON String → Pattern (core method).
      *
-     * @param jsonString  GraphSpec JSON string
-     * @param classLoader user code ClassLoader
-     * @return reconstructed Flink Pattern object
+     * @param jsonString  GraphSpec JSON 字符串（一条规则的完整定义）
+     * @param classLoader 用户代码 ClassLoader（用于加载 CLASS 类型条件）
+     * @return 还原出的 Flink Pattern 对象（链式 Pattern）
+     * @throws Exception JSON 解析失败或 Pattern 重建失败时抛出
      */
     @SuppressWarnings("unchecked")
     public static <T> Pattern<T, ?> convertJSONStringToPattern(

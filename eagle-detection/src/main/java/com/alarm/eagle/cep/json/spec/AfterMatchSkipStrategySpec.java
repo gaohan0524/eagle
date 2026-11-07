@@ -8,6 +8,9 @@ import org.apache.flink.cep.nfa.aftermatch.SkipToLastStrategy;
  * JSON representation of AfterMatchSkipStrategy.
  *
  * <p>JSON Format: {@code {"type":"SKIP_PAST_LAST_EVENT","patternName":null}}
+ *
+ * <p>业务含义：命中后跳过策略（如命中后跳到最近/最后/指定节点），
+ * 决定同一条规则在一次命中后如何继续参与后续事件匹配，避免重复告警。
  */
 public class AfterMatchSkipStrategySpec {
 

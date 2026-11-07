@@ -66,6 +66,8 @@ public class NodeSpec {
 
     /**
      * Construct NodeSpec from a Flink Pattern.
+     *
+     * <p>业务含义：单个 Pattern 节点 → JSON 节点（含量词与条件）。
      */
     public static NodeSpec fromPattern(Pattern<?, ?> pattern) {
         QuantifierSpec q = new QuantifierSpec(
@@ -78,6 +80,9 @@ public class NodeSpec {
 
     /**
      * ★★ Core method: restore a NodeSpec to a Flink Pattern node.
+     *
+     * <p>业务含义：把单个 JSON 节点还原成 Flink Pattern 节点，依次恢复条件、量词
+     * （optional/greedy/times/timesOrMore）、内部连续性（consecutive/allowCombinations）与 untilCondition。
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Pattern<?, ?> toPattern(
