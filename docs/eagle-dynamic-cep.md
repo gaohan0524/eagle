@@ -1,8 +1,10 @@
 # Eagle Dynamic CEP 设计与使用文档
 
+> 相关文档：[eagle-detection 代码精读系列](eagle-detection/README.md) · [eagle-detection 与 Flink CEP 学习指南](eagle-detection-flink-cep-study.md)
+
 ## 一、概述
 
-Eagle Dynamic CEP 是基于 Apache Flink CEP 构建的动态规则引擎，核心能力是**在不重启 Flink 作业的情况下热更新 CEP 规则**。规则以 JSON 格式存储在 MySQL 中，通过 REST API 管理，运行时动态加载和热替换。
+Eagle Dynamic CEP 是基于 Apache Flink CEP 构建的动态规则引擎，核心能力是**在不重启 Flink 作业的情况下热更新 CEP 规则**。规则以 JSON 格式存储在 MySQL 中，通过 REST API 管理；`eagle-detection` 作业在启动时同步调用 `GET /cep/rules` 加载规则，并在运行期间轮询该接口实现热替换。
 
 `eagle-detection` 模块已统一使用 Dynamic CEP 作为事件序列匹配引擎。
 
@@ -28,6 +30,7 @@ Eagle Dynamic CEP 是基于 Apache Flink CEP 构建的动态规则引擎，核�
 │  ApiPatternProcessorDiscoverer ──► GET /cep/rules        │
 │  (30s 轮询 eagle-api)                                     │
 │  JDBCPeriodicPatternProcessorDiscoverer ──► MySQL 直连     │
+│  （备选实现，当前 DetectionApp 未启用）                      │
 └──────────────────────┬──────────────────────────────────┘
                        │ onPatternProcessorsUpdated()
                        ▼
@@ -92,7 +95,7 @@ eagle-detection/src/main/java/com/alarm/eagle/
 │   └── DetectionProperties.java   # 参数管理（dev/prod）
 ├── message/
 │   └── Transaction.java           # 交易事件模型（CSV 解析）
-└── cep/                           # Dynamic CEP 引擎（33 文件）
+└── cep/                           # Dynamic CEP 引擎（39 个主类）
     ├── DynamicCEP.java            # API 入口
     ├── PatternWrapper.java
     ├── condition/
@@ -100,7 +103,7 @@ eagle-detection/src/main/java/com/alarm/eagle/
     ├── json/
     │   ├── CepJsonUtils.java
     │   ├── TimeDeserializer.java
-    │   └── spec/ (12 个 JSON 序列化类)
+    │   └── spec/ (13 个 JSON 序列化类)
     ├── operator/
     │   ├── DynamicCepOperator.java
     │   ├── DynamicCepOperatorFactory.java
@@ -109,14 +112,17 @@ eagle-detection/src/main/java/com/alarm/eagle/
     │   ├── PatternProcessorChangeEvent.java
     │   └── RuleLifecycleEvent.java
     └── processor/
-        ├── PatternProcessor.java
-        ├── DefaultPatternProcessor.java
-        ├── ApiPatternProcessorDiscoverer.java
+        ├── PatternProcessor.java                    # 规则抽象接口
+        ├── DefaultPatternProcessor.java             # 规则默认实现
+        ├── PatternProcessorDiscoverer.java          # 发现器接口
+        ├── PatternProcessorDiscovererFactory.java   # 发现器工厂接口
+        ├── PatternProcessorManager.java             # 规则更新回调接口
+        ├── PeriodicPatternProcessorDiscoverer.java  # 周期轮询基类
+        ├── ApiPatternProcessorDiscoverer.java       # HTTP 轮询（生产使用）
         ├── ApiPatternProcessorDiscovererFactory.java
-        ├── JDBCPeriodicPatternProcessorDiscoverer.java
+        ├── JDBCPeriodicPatternProcessorDiscoverer.java       # JDBC 轮询（备选）
         ├── JDBCPeriodicPatternProcessorDiscovererFactory.java
-        ├── PeriodicPatternProcessorDiscoverer.java
-        └── RuleState.java
+        └── RuleState.java                           # 生命周期枚举（当前未使用）
 ```
 
 ### 3.2 事件模型 — Transaction
@@ -127,9 +133,9 @@ public class Transaction implements Serializable {
     long eventTime;          // 事件时间 (ms)
     long payerId;            // 付款方 ID
     long beneficiaryId;      // 收款方 ID
-    String paymentType;      // CSH / CRD
+    String paymentType;      // 支付类型（源码未定义枚举）【待确认业务】
     BigDecimal paymentAmount;// 金额
-    long ingestionTimestamp; // 摄入时间戳
+    Long ingestionTimestamp; // 接入时间戳（是否参与匹配【待确认业务】）
 
     // CSV 解析: transactionId,eventTime,payerId,beneficiaryId,paymentType,paymentAmount,ingestionTimestamp
     public static Transaction fromString(String csvLine) { ... }
@@ -603,9 +609,15 @@ public class DetectionAlertFunction extends PatternProcessFunction<Transaction, 
 3. 事件时间戳是否在窗口范围内？确认 `window.size` 足够大
 4. Aviator 表达式是否正确？检查字段名是否匹配事件类的 getter 名（区分大小写）
 
-### Q2: 规则更新后为什么旧的 partial match 丢失了？
+### Q2: 规则更新后旧的 partial match 会怎样？
 
-当前采用**硬切换**策略：规则更新时旧版本 NFA 状态被清除，进行中的部分匹配会被丢弃。这是 MVP 的权衡（简单可靠），后续版本将通过独立 state name 实现优雅迁移。
+分三种情况：
+
+- **同 id + 同 version**（全量重发但规则未变）：`RuleContext` 直接复用，进行中的部分匹配**完整保留**；
+- **同 id + version 升级**：旧版本 NFA 关闭并延迟清理，新版本使用全新状态名（`nfaState-{id}-{version}`），**从零开始匹配**；
+- **规则被删除**：关闭 NFA，状态通过 deferred cleanup 延迟清理。
+
+因此"升级版本会丢失部分匹配"是有意设计（避免旧逻辑的中间状态污染新规则），而未变更的规则不受影响。
 
 ### Q3: `SharedBuffer` 共享是否有问题？
 
@@ -648,7 +660,7 @@ Discoverer 首次检查时直接返回 `initialProcessors`，跳过 HTTP 调用�
 
 2. **规则版本管理**：同 `ruleId` 提交新规则时，`version` 自动递增。Discoverer 检测版本变化后只推送变更部分。
 
-3. **状态清理**：规则下线时旧版本的状态通过 deferred cleanup 机制清理，但不是立即的（依赖 State TTL）。
+3. **状态清理**：规则下线时旧版本的状态通过 deferred cleanup 机制清理，但不是立即的。当前**未显式配置 `StateTtlConfig`**，孤儿状态不会自动回收，需要依赖外部策略或后续补充 TTL 配置。
 
 4. **SharedBuffer 共享**：所有规则共享一个 `SharedBuffer`，因使用不同 state name 无实际冲突。
 
@@ -665,3 +677,10 @@ Discoverer 首次检查时直接返回 `initialProcessors`，跳过 HTTP 调用�
 10. **规则 JSON 生成**：可用 `CepJsonUtils.convertPatternToJSONString(pattern)` 将 Java Pattern API 构建的规则导出为 JSON，避免手写 JSON 出错。
 
 11. **扩展 Discoverer**：实现 `PeriodicPatternProcessorDiscoverer<T>` 抽象类，覆盖 `arePatternProcessorsUpdated()` 和 `getLatestPatternProcessors()` 即可对接 etcd/Consul/配置中心等数据源。
+
+---
+
+## 十一、相关文档
+
+- [eagle-detection 代码精读系列](eagle-detection/README.md)：12 篇源码逐层精读，含数据结构、时间语义、热更新与端到端测试。
+- [eagle-detection 与 Flink CEP 学习指南](eagle-detection-flink-cep-study.md)：Flink CEP 基础原理 + 模块整体讲解 + 学习路径。
