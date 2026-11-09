@@ -236,7 +236,8 @@
 
 | 文档 | 状态 | 内容 |
 |---|---|---|
-| `00-overview.md` | ✅ | 总纲与阅读地图 |
+| [`README.md`](README.md) | ✅ | 系列导读、文档清单、已知问题汇总 |
+| [`00-overview.md`](00-overview.md) | ✅ | 总纲与阅读地图 |
 | `01-entry-and-event.md` | ✅ | 作业入口与事件模型 |
 | `02-api-and-rule-abstraction.md` | ✅ | API 门面与规则抽象 |
 | `03-rule-json-serialization.md` | ✅ | 规则 JSON 模型与序列化 |
