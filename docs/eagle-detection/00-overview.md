@@ -234,17 +234,17 @@
 
 ## 六、文档索引
 
-| 文档 | 状态 |
-|---|---|
-| `00-overview.md` | ✅ 当前文档 |
-| `01-entry-and-event.md` | ✅ 已完成 |
-| `02-api-and-rule-abstraction.md` | ⏳ 待生成 |
-| `03-rule-json-serialization.md` | ⏳ 待生成 |
-| `04-dynamic-condition.md` | ⏳ 待生成 |
-| `05-rule-discovery.md` | ⏳ 待生成 |
-| `06-jm-coordinator.md` | ⏳ 待生成 |
-| `07a-operator-data-structure.md` | ⏳ 待生成 |
-| `07b-operator-event-processing.md` | ⏳ 待生成 |
-| `07c-operator-hot-swap.md` | ⏳ 待生成 |
-| `07d-operator-lifecycle-inner-classes.md` | ⏳ 待生成 |
-| `08-end-to-end-and-testing.md` | ⏳ 待生成 |
+| 文档 | 状态 | 内容 |
+|---|---|---|
+| `00-overview.md` | ✅ | 总纲与阅读地图 |
+| `01-entry-and-event.md` | ✅ | 作业入口与事件模型 |
+| `02-api-and-rule-abstraction.md` | ✅ | API 门面与规则抽象 |
+| `03-rule-json-serialization.md` | ✅ | 规则 JSON 模型与序列化 |
+| `04-dynamic-condition.md` | ✅ | 动态条件引擎 |
+| `05-rule-discovery.md` | ✅ | 规则发现层 |
+| `06-jm-coordinator.md` | ✅ | JM 侧协调器 |
+| `07a-operator-data-structure.md` | ✅ | 执行引擎：数据结构与生命周期 |
+| `07b-operator-event-processing.md` | ✅ | 执行引擎：事件处理与时间语义 |
+| `07c-operator-hot-swap.md` | ✅ | 执行引擎：规则热更新 |
+| `07d-operator-lifecycle-inner-classes.md` | ✅ | 执行引擎：生命周期与内部类 |
+| `08-end-to-end-and-testing.md` | ✅ | 端到端串讲与测试 |
